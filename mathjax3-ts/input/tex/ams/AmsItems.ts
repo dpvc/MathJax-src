@@ -68,7 +68,7 @@ export class MultlineItem extends ArrayItem {
       ParseUtil.fixInitialMO(this.factory.configuration, this.nodes);
     }
     const shove = this.getProperty('shove');
-    const mtd = this.factory.configuration.nodeFactory.create('node', 
+    const mtd = this.factory.configuration.nodeFactory.create('node',
       'mtd', this.nodes, shove ? {columnalign: shove} : {});
     this.setProperty('shove', null);
     this.row.push(mtd);
@@ -80,10 +80,11 @@ export class MultlineItem extends ArrayItem {
    */
   public EndRow() {
         if (this.row.length !== 1) {
-      throw new TexError(
-        ['MultlineRowsOneCol',
-         'The rows within the %1 environment must have exactly one column',
-         'multline']);
+          // @test MultlineRowsOneCol
+          throw new TexError(
+            'MultlineRowsOneCol',
+            'The rows within the %1 environment must have exactly one column',
+            'multline');
       }
     let row = this.factory.configuration.nodeFactory.create('node', 'mtr', this.row, {});
     this.table.push(row);
@@ -111,7 +112,7 @@ export class MultlineItem extends ArrayItem {
       if (tag) {
         label = (this.arraydef.side === TexConstant.Align.LEFT ? 0 : this.table.length - 1);
         const mtr = this.table[label];
-        const mlabel = this.factory.configuration.nodeFactory.create('node', 
+        const mlabel = this.factory.configuration.nodeFactory.create('node',
           'mlabeledtr', [tag].concat(NodeUtil.getChildren(mtr)), {});
         NodeUtil.copyAttributes(mtr, mlabel);
         this.table[label] = mlabel;

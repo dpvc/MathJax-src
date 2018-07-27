@@ -80,28 +80,49 @@ export class MapHandler {
 
 
   /**
+   * Initialises extension maps.
+   */
+  public resetExtensions() {
+    new sm.MacroMap(ExtensionMaps.NEW_MACRO, {}, {});
+    new sm.DelimiterMap(ExtensionMaps.NEW_DELIMITER,
+                        ParseMethods.delimiter, {});
+    new sm.CommandMap(ExtensionMaps.NEW_COMMAND, {}, {});
+    new sm.EnvironmentMap(ExtensionMaps.NEW_ENVIRONMENT,
+                          ParseMethods.environment, {}, {});
+  }
+
+
+  /**
    * Dummy constructor
    * @constructor
    */
-  private constructor() { }
+  private constructor() {
+  }
 
 }
 
 
 // Defining empty handlers for declaring new commands, macros, etc.
 // TODO: Make sure multiple runs do not interfere!
-new sm.MacroMap('new-Macro', {}, {});
-new sm.DelimiterMap('new-Delimiter', ParseMethods.delimiter, {});
-new sm.CommandMap('new-Command', {}, {});
-new sm.EnvironmentMap('new-Environment', ParseMethods.environment, {}, {});
-const emptyConf = Configuration.create(
+export type ExtensionMap = 'new-Macro' | 'new-Delimiter' | 'new-Command' |
+  'new-Environment';
+export const ExtensionMaps: {[id: string]: ExtensionMap} = {
+  NEW_MACRO: 'new-Macro',
+  NEW_DELIMITER: 'new-Delimiter',
+  NEW_COMMAND: 'new-Command',
+  NEW_ENVIRONMENT: 'new-Environment'
+};
+
+MapHandler.getInstance().resetExtensions();
+export const ExtensionConf = Configuration.create(
   'empty',
   {handler: {character: [],
-             delimiter: ['new-Delimiter'],
-             macro: ['new-Delimiter', 'new-Command', 'new-Macro'],
-             environment: ['new-Environment']
+             delimiter: [ExtensionMaps.NEW_DELIMITER],
+             macro: [ExtensionMaps.NEW_DELIMITER,
+                     ExtensionMaps.NEW_COMMAND,
+                     ExtensionMaps.NEW_MACRO],
+             environment: [ExtensionMaps.NEW_ENVIRONMENT]
             }});
-
 
 /**
  * Class of symbol mappings that are active in a configuration.
@@ -217,13 +238,13 @@ export class SubHandler {
 export class SubHandlers {
 
   private map = new Map<HandlerType, SubHandler>();
-  
+
   /**
    * Sets a new configuration for the map handler.
    * @param {Configuration} configuration A setting for the map handler.
    */
   constructor(config: Configuration) {
-    config.append(emptyConf);
+    config.append(ExtensionConf);
     for (const key of Object.keys(config.handler)) {
       let name = key as HandlerType;
       let subHandler = new SubHandler(config.handler[name] || [],
@@ -232,14 +253,31 @@ export class SubHandlers {
     }
   }
 
+
+  /**
+   * Setter for subhandlers.
+   * @param {HandlerType} name The name of the subhandler.
+   * @param {SubHandler} subHandler The subhandler.
+   */
   public set(name: HandlerType, subHandler: SubHandler) {
     this.map.set(name, subHandler);
   }
 
+
+  /**
+   * Getter for subhandler.
+   * @param {HandlerType} name Name of the subhandler.
+   * @return {SubHandler} The subhandler by that name if it exists.
+   */
   public get(name: HandlerType): SubHandler {
     return this.map.get(name);
   }
 
+
+  /**
+   * All names of registered subhandlers.
+   * @return {IterableIterator<string>} Iterable list of keys.
+   */
   public keys(): IterableIterator<string> {
     return this.map.keys();
   }

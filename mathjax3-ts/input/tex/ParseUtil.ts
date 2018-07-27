@@ -1,6 +1,6 @@
 /*************************************************************
  *
- *  MathJax/jax/input/TeX/ParserUtil.js
+ *  MathJax/jax/input/TeX/ParseUtil.js
  *
  *  Implements the TeX InputJax that reads mathematics in
  *  TeX and LaTeX format and converts it to the MML ElementJax
@@ -80,10 +80,10 @@ namespace ParseUtil {
 
   /**
    * Convert a dimension string into standard em dimension.
-   * @param {}
-   * @return {}
+   * @param {string} dim The attribute string.
+   * @return {number} The numerical value.
    */
-  export function dimen2em(dim: string) {
+  export function dimen2em(dim: string): number {
     let [value, unit, _] = matchDimen(dim);
     let m = parseFloat(value || '1');
     let func = UNIT_CASES[unit];
@@ -91,6 +91,10 @@ namespace ParseUtil {
   }
 
 
+  /**
+   * Turns a number into an em value.
+   * @param {number} m The number.
+   */
   export function Em(m: number) {
     if (Math.abs(m) < .0006) {
       return '0em';
@@ -100,14 +104,18 @@ namespace ParseUtil {
 
 
   /**
-   *  Create an mrow that has stretchy delimiters at either end, as needed
+   * Create an mrow that has stretchy delimiters at either end, as needed
+   * @param {ParseOptions} configuration Current parse options.
+   * @param {string} open The opening fence.
+   * @param {MmlNode} mml The enclosed node.
+   * @param {string} close The closing fence.
    */
   export function fenced(configuration: ParseOptions, open: string, mml: MmlNode, close: string) {
     // @test Fenced, Fenced3
-    let mrow = configuration.nodeFactory.create('node', 
+    let mrow = configuration.nodeFactory.create('node',
       'mrow', [], {open: open, close: close, texClass: TEXCLASS.INNER});
     let openNode = configuration.nodeFactory.create('text', open);
-    let mo = configuration.nodeFactory.create('node', 
+    let mo = configuration.nodeFactory.create('node',
       'mo', [],
       {fence: true, stretchy: true, symmetric: true, texClass: TEXCLASS.OPEN},
       openNode);
@@ -120,7 +128,7 @@ namespace ParseUtil {
       NodeUtil.appendChildren(mrow, [mml]);
     }
     let closeNode = configuration.nodeFactory.create('text', close);
-    mo = configuration.nodeFactory.create('node', 
+    mo = configuration.nodeFactory.create('node',
       'mo', [],
       {fence: true, stretchy: true, symmetric: true, texClass: TEXCLASS.CLOSE},
       closeNode);
@@ -130,11 +138,15 @@ namespace ParseUtil {
 
 
   /**
-   *  Create an mrow that has \mathchoice using \bigg and \big for the delimiters
+   *  Create an mrow that has \\mathchoice using \\bigg and \\big for the delimiters.
+   * @param {ParseOptions} configuration The current parse options.
+   * @param {string} open The opening fence.
+   * @param {MmlNode} mml The enclosed node.
+   * @param {string} close The closing fence.
    */
   export function fixedFence(configuration: ParseOptions, open: string, mml: MmlNode, close: string) {
     // @test Choose, Over With Delims, Above with Delims
-    let mrow = configuration.nodeFactory.create('node', 
+    let mrow = configuration.nodeFactory.create('node',
       'mrow', [], {open: open, close: close, texClass: TEXCLASS.ORD});
     if (open) {
       NodeUtil.appendChildren(mrow, [mathPalette(configuration, open, 'l')]);
@@ -151,6 +163,14 @@ namespace ParseUtil {
   }
 
 
+  /**
+   * Generates a mathchoice element for fences. These will be resolved later,
+   * once the position, and therefore size, of the of the fenced expression is
+   * known.
+   * @param {ParseOptions} configuration The current parse otpions.
+   * @param {string} fence The fence.
+   * @param {string} side The side of the fence (l or r).
+   */
   export function mathPalette(configuration: ParseOptions, fence: string, side: string) {
     if (fence === '{' || fence === '}') {
       fence = '\\' + fence;
@@ -184,6 +204,11 @@ namespace ParseUtil {
   }
 
 
+  /**
+   * Rewrites an mi node into an mo node.
+   * @param {TexParser} parser The current TexParser.
+   * @param {MmlNode} mi The mi node.
+   */
   export function mi2mo(parser: TexParser, mi: MmlNode) {
     // @test Mathop Sub, Mathop Super
     const mo = parser.configuration.nodeFactory.create('node', 'mo', [], {});
@@ -196,7 +221,7 @@ namespace ParseUtil {
 
 
   /**
-   *  Break up a string into text and math blocks
+   *  Break up a string into text and math blocks.
    * @param {TexParser} parser The calling parser.
    * @param {string} text The text in the math expression to parse.
    * @param {number|string=} level The scriptlevel.
@@ -230,7 +255,9 @@ namespace ParseUtil {
         } else if (c === '}') {
           if (match === '}' && braces === 0) {
             // TODO: test a\mbox{ \eqref{1} } c
-            node = parser.configuration.nodeFactory.create('node', 'TeXAtom', [(new TexParser(text.slice(k, i), {}, parser.configuration)).mml()], def);
+            let atom = (new TexParser(text.slice(k, i), {}, parser.configuration)).mml();
+            node = parser.configuration.nodeFactory.create(
+              'node', 'TeXAtom', [atom], def);
             mml.push(node);
             match = '';
             k = i;
@@ -277,7 +304,7 @@ namespace ParseUtil {
       }
       if (match !== '') {
         // TODO: test a\mbox{$}} c
-        throw new TexError(['MathNotTerminated', 'Math not terminated in text box']);
+        throw new TexError('MathNotTerminated', 'Math not terminated in text box');
       }
     }
     if (k < text.length) {
@@ -295,7 +322,14 @@ namespace ParseUtil {
 
   const NBSP = '\u00A0';
 
-  function internalText(parser: TexParser, text: string, def: EnvList) {
+  /**
+   * Parses text internal to boxes or labels.
+   * @param {TexParser} parser The current tex parser.
+   * @param {string} text The text to parse.
+   * @param {EnvList} def The attributes of the text node.
+   * @return {MmlNode} The text node.
+   */
+  function internalText(parser: TexParser, text: string, def: EnvList): MmlNode {
     // @test Label, Fbox, Hbox
     text = text.replace(/^\s+/, NBSP).replace(/\s+$/, NBSP);
     let textNode = parser.configuration.nodeFactory.create('text', text);
@@ -318,10 +352,14 @@ namespace ParseUtil {
     return TEXT;
   }
 
+
   /**
    * Sets alignment in array definitions.
+   * @param {ArrayItem} array The array item.
+   * @param {string} align The alignment string.
+   * @return {ArrayItem} 
    */
-  export function setArrayAlign(array: ArrayItem, align: string) {
+  export function setArrayAlign(array: ArrayItem, align: string): ArrayItem {
     // @test Array1, Array2, Array Test
     align = ParseUtil.trimSpaces(align || '');
     if (align === 't') {
@@ -357,8 +395,8 @@ namespace ParseUtil {
           text += c;
         } else {
           if (!c.match(/[1-9]/) || parseInt(c, 10) > args.length) {
-            throw new TexError(['IllegalMacroParam',
-                                'Illegal macro parameter reference']);
+            throw new TexError('IllegalMacroParam',
+                                'Illegal macro parameter reference');
           }
           newstring = addArgs(addArgs(newstring, text),
                               args[parseInt(c, 10) - 1]);
@@ -381,9 +419,9 @@ namespace ParseUtil {
       s1 += ' ';
     }
     if (s1.length + s2.length > MAXBUFFER) {
-      throw new TexError(['MaxBufferSize',
+      throw new TexError('MaxBufferSize',
                           'MathJax internal buffer size exceeded; is there a' +
-                          ' recursive macro call?']);
+                          ' recursive macro call?');
     }
     return s1 + s2;
   }
@@ -394,7 +432,8 @@ namespace ParseUtil {
    */
   export function checkEqnEnv(parser: TexParser) {
     if (parser.stack.global.eqnenv) {
-      throw new TexError(['ErroneousNestingEq', 'Erroneous nesting of equation structures']);
+      // @test ErroneousNestingEq
+      throw new TexError('ErroneousNestingEq', 'Erroneous nesting of equation structures');
     }
     parser.stack.global.eqnenv = true;
   };

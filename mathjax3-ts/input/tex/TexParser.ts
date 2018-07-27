@@ -32,7 +32,6 @@ import TexError from './TexError.js';
 import {AbstractSymbolMap, SymbolMap} from './SymbolMap.js';
 import {MmlMo} from '../../core/MmlTree/MmlNodes/mo.js';
 import {MmlNode} from '../../core/MmlTree/MmlNode.js';
-// import {NewTex} from './Translate.js';
 import {ParseInput, ParseResult, ParseMethod} from './Types.js';
 import ParseOptions from './ParseOptions.js';
 import {StackItem, EnvList} from './StackItem.js';
@@ -61,6 +60,12 @@ export default class TexParser {
    * @type {number}
    */
   public i: number = 0;
+
+  /**
+   * The last command sequence 
+   * @type {string}
+   */
+  public currentCS: string = '';
 
   /**
    * @constructor
@@ -166,6 +171,10 @@ export default class TexParser {
     return str;
   }
 
+
+  /**
+   * Parses the current input string.
+   */
   public Parse() {
     let c, n;
     while (this.i < this.string.length) {
@@ -177,10 +186,20 @@ export default class TexParser {
     }
   }
 
+
+  /**
+   * Pushes a new item onto the stack. The item can also be a Mml node.
+   * @param {StackItem|MmlNode} arg The new item.
+   */
   public Push(arg: StackItem|MmlNode) {
     this.stack.Push(arg);
   }
 
+
+  /**
+   * Pushes a list of new items onto the stack.
+   * @param {StackItem|MmlNode[]} args The new items.
+   */
   public PushAll(args: (StackItem|MmlNode)[]) {
     for (let i = 0, m = args.length; i < m; i++) {
       this.stack.Push(args[i]);
@@ -200,8 +219,8 @@ export default class TexParser {
     return node;
   }
 
-  /************************************************************************/
-  /*
+  /************************************************************************
+   *
    *   String handling routines
    */
 
@@ -253,13 +272,15 @@ export default class TexParser {
     switch (this.GetNext()) {
     case '':
       if (!noneOK) {
-        throw new TexError(['MissingArgFor', 'Missing argument for %1', name]);
+        // @test MissingArgFor
+        throw new TexError('MissingArgFor', 'Missing argument for %1', this.currentCS);
       }
       return null;
     case '}':
       if (!noneOK) {
-        throw new TexError(['ExtraCloseMissingOpen',
-                            'Extra close brace or missing open brace']);
+        // @test ExtraCloseMissingOpen
+        throw new TexError('ExtraCloseMissingOpen',
+                            'Extra close brace or missing open brace');
       }
       return null;
     case '\\':
@@ -278,7 +299,8 @@ export default class TexParser {
           break;
         }
       }
-      throw new TexError(['MissingCloseBrace', 'Missing close brace']);
+      // @test MissingCloseBrace
+      throw new TexError('MissingCloseBrace', 'Missing close brace');
     }
     return this.string.charAt(this.i++);
   }
@@ -298,8 +320,9 @@ export default class TexParser {
       case '\\':  this.i++; break;
       case '}':
         if (parens-- <= 0) {
-          throw new TexError(['ExtraCloseLooking',
-                              'Extra close brace while looking for %1', '\']\'']);
+          // @test ExtraCloseLooking1
+          throw new TexError('ExtraCloseLooking',
+                              'Extra close brace while looking for %1', '\']\'');
         }
         break;
       case ']':
@@ -309,8 +332,9 @@ export default class TexParser {
         break;
       }
     }
-    throw new TexError(['MissingCloseBracket',
-                        'Could not find closing \']\' for argument to %1', name]);
+    // @test MissingCloseBracket
+    throw new TexError('MissingCloseBracket',
+                        'Could not find closing \']\' for argument to %1', this.currentCS);
   }
 
   /**
@@ -332,8 +356,9 @@ export default class TexParser {
         return this.convertDelimiter(c);
       }
     }
-    throw new TexError(['MissingOrUnrecognizedDelim',
-                        'Missing or unrecognized delimiter for %1', name]);
+    // @test MissingOrUnrecognizedDelim1, MissingOrUnrecognizedDelim2
+    throw new TexError('MissingOrUnrecognizedDelim',
+                        'Missing or unrecognized delimiter for %1', this.currentCS);
   }
 
   /**
@@ -359,8 +384,9 @@ export default class TexParser {
         return value + unit;
       }
     }
-    throw new TexError(['MissingDimOrUnits',
-                        'Missing dimension or its units for %1', name]);
+    // @test MissingDimOrUnits
+    throw new TexError('MissingDimOrUnits',
+                        'Missing dimension or its units for %1', this.currentCS);
   }
 
 
@@ -381,8 +407,9 @@ export default class TexParser {
       case '{':   parens++; break;
       case '}':
         if (parens === 0) {
-          throw new TexError(['ExtraCloseLooking',
-                              'Extra close brace while looking for %1', token]);
+          // @test ExtraCloseLooking2
+          throw new TexError('ExtraCloseLooking',
+                              'Extra close brace while looking for %1', token);
         }
         parens--;
         break;
@@ -391,8 +418,9 @@ export default class TexParser {
         return this.string.slice(j, k);
       }
     }
-    throw new TexError(['TokenNotFoundForCommand',
-                        'Could not find %1 for %2', token, name]);
+    // @test TokenNotFoundForCommand
+    throw new TexError('TokenNotFoundForCommand',
+                        'Could not find %1 for %2', token, this.currentCS);
   }
 
   /**
@@ -418,6 +446,7 @@ export default class TexParser {
   /**
    *  Get a delimiter or empty argument
    */
+  // TODO: This is actually an AMS command.
   public GetDelimiterArg(name: string) {
     let c = ParseUtil.trimSpaces(this.GetArgument(name));
     if (c === '') {
@@ -426,8 +455,9 @@ export default class TexParser {
     if (this.contains('delimiter', c)) {
       return c;
     }
-    throw new TexError(['MissingOrUnrecognizedDelim',
-                        'Missing or unrecognized delimiter for %1', name]);
+    // @test MissingOrUnrecognizedDelim
+    throw new TexError('MissingOrUnrecognizedDelim',
+                        'Missing or unrecognized delimiter for %1', this.currentCS);
   }
 
   /**

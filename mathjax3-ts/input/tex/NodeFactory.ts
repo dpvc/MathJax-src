@@ -1,3 +1,36 @@
+/*************************************************************
+ *
+ *  MathJax/jax/input/TeX/NodeFactory.js
+ *  
+ *  Implements the TeX InputJax that reads mathematics in
+ *  TeX and LaTeX format and converts it to the MML ElementJax
+ *  internal format.
+ *
+ *  ---------------------------------------------------------------------
+ *  
+ *  Copyright (c) 2009-2018 The MathJax Consortium
+ * 
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+
+/**
+ * @fileoverview Node factory for creating MmlNodes. This allows extension
+ *     packages to add node constructors or overwrite existing ones.
+ *
+ * @author v.sorge@mathjax.org (Volker Sorge)
+ */
+
 import {TextNode, MmlNode, AbstractMmlNode, AbstractMmlEmptyNode} from '../../core/MmlTree/MmlNode.js';
 import {MmlMo} from '../../core/MmlTree/MmlNodes/mo.js';
 import {Property, PropertyList} from '../../core/Tree/Node.js';
@@ -9,14 +42,28 @@ import ParseOptions from './ParseOptions.js';
 import NodeUtil from './NodeUtil.js';
 
 
+export type NodeFactoryMethod = (factory: NodeFactory, kind: string, ...rest: any[]) => MmlNode;
 
 export class NodeFactory {
 
+  /**
+   * Parser configuration that can be used for passes information between node methods.
+   * @type {ParseOption}
+   */
   public configuration: ParseOptions;
 
+
+  /**
+   * The external node factory.
+   * @type {MmlFactory}
+   */
   protected mmlFactory: MmlFactory = new MmlFactory();
 
-  private factory: Map<string, (factory: NodeFactory, kind: string, ...rest: any[]) => MmlNode> =
+
+  /**
+   * The factory table populated with some default methods.
+   */
+  private factory: Map<string, NodeFactoryMethod> =
     new Map([
       ['node', NodeFactory.createNode],
       ['token', NodeFactory.createToken],
@@ -24,28 +71,22 @@ export class NodeFactory {
       ['error', NodeFactory.createError],
     ]);
 
-  public set(name: string, func: (factory: NodeFactory, kind: string, ...rest: any[]) => MmlNode) {
-    this.factory.set(name, func);
-  }
 
-  public setCreators(maps: {[name: string]: (factory: NodeFactory, kind: string, ...rest: any[]) => MmlNode}) {
-    for (let name in maps) {
-      this.set(name, maps[name]);
-    }
-  }
-  
-  public create(name: string, ...rest: any[]): MmlNode {
-    let func = this.factory.get(name) || this.factory.get('node');
-    return func.apply(null, [this].concat(rest));
-  }
-
-
+  /**
+   * Default node generation function.
+   * @param {NodeFactory} factory The current node factory.
+   * @param {string} kind The type of node to create.
+   * @param {MmlNode[]} children Its children.
+   * @param {any} def Its properties.
+   * @param {TextNode=} text An optional text node if this is a token.
+   * @return {MmlNode} The newly created Mml node.
+   */
   public static createNode(factory: NodeFactory, kind: string,
-                           children: MmlNode[], def: any, text?: TextNode): MmlNode
-  {
+                           children: MmlNode[], def: any,
+                           text?: TextNode): MmlNode {
     const node = factory.mmlFactory.create(kind, {}, []);
     // If infinity or -1 remove inferred mrow
-    // 
+    //
     // In all other cases replace inferred mrow with a regular mrow, before adding
     // children.
     const arity = node.arity;
@@ -75,12 +116,28 @@ export class NodeFactory {
     return node;
   };
 
+
+  /**
+   * Default token generation function.
+   * @param {NodeFactory} factory The current node factory.
+   * @param {string} kind The type of node to create.
+   * @param {any} def Its properties.
+   * @param {string} text Text of the token.
+   * @return {MmlNode} The newly created token node.
+   */
   public static createToken(factory: NodeFactory, kind: string, def: any,
                             text: string): MmlNode  {
-    const textNode = NodeFactory.createText(factory, text);
-    return NodeFactory.createNode(factory, kind, [], def, textNode);
+    const textNode = factory.create('text', text);
+    return factory.create('node', kind, [], def, textNode);
   }
 
+
+  /**
+   * Default text node generation function.
+   * @param {NodeFactory} factory The current node factory.
+   * @param {string} text The text for the new node.
+   * @return {TextNode} The newly created text node.
+   */
   public static createText(factory: NodeFactory, text: string): TextNode  {
     if (text == null) {
       return null;
@@ -88,13 +145,51 @@ export class NodeFactory {
     return (factory.mmlFactory.create('text') as TextNode).setText(text);
   };
 
+
+  /**
+   * Default error node generation function.
+   * @param {NodeFactory} factory The current node factory.
+   * @param {string} message The error message.
+   * @return {MmlNode} The newly created error node.
+   */
   public static createError(factory: NodeFactory, message: string): MmlNode  {
-    let text = NodeFactory.createText(factory, message);
-    let mtext = NodeFactory.createNode(factory, 'mtext', [], {}, text);
-    let error = NodeFactory.createNode(factory, 'merror', [mtext], {});
+    let text = factory.create('text', message);
+    let mtext = factory.create('node', 'mtext', [], {}, text);
+    let error = factory.create('node', 'merror', [mtext], {});
     return error;
   };
 
 
+  /**
+   * Adds a method to the factory.
+   * @param {string} kind The type of node the method creates.
+   * @param {NodeFactoryMethod} func The node creator.
+   */
+  public set(kind: string, func: NodeFactoryMethod) {
+    this.factory.set(kind, func);
+  }
+
+
+  /**
+   * Adds a set of node creators to the factory.
+   * @param {Object.<NodeFactoryMethod>} maps The set of functions.
+   */
+  public setCreators(maps: {[kind: string]: NodeFactoryMethod}) {
+    for (let kind in maps) {
+      this.set(kind, maps[kind]);
+    }
+  }
+
+
+  /**
+   * Creates a node for the internal data structure from the factory.
+   * @param {string} kind The type of node to be created.
+   * @param {any[]} ...rest The arguments for the node.
+   * @return {MmlNode} The created node.
+   */
+  public create(kind: string, ...rest: any[]): MmlNode {
+    let func = this.factory.get(kind) || this.factory.get('node');
+    return func.apply(null, [this].concat(rest));
+  }
 
 }
