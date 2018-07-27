@@ -1,3 +1,7 @@
 *~
 node_modules
-mathjax3
+mathjax3/*
+!mathjax3/output
+mathjax3/output/*
+!mathjax3/output/phtml*
+
