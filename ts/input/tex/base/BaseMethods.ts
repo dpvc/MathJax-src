@@ -386,7 +386,7 @@ BaseMethods.DiscretionaryTimes = function (parser: TexParser, _name: string) {
  * @param {string} _name The macro name.
  */
 BaseMethods.AllowBreak = function (parser: TexParser, _name: string) {
-  parser.Push(parser.create('token', 'mo', {'data-allowbreak': true}));
+  parser.Push(parser.create('token', 'mspace'));
 }
 
 /**
@@ -396,7 +396,7 @@ BaseMethods.AllowBreak = function (parser: TexParser, _name: string) {
  * @param {string} _name The macro name.
  */
 BaseMethods.Break = function (parser: TexParser, _name: string) {
-  parser.Push(parser.create('token', 'mo', {linebreak: TexConstant.LineBreak.NEWLINE}));
+  parser.Push(parser.create('token', 'mspace', {linebreak: TexConstant.LineBreak.NEWLINE}));
 }
 
 /**
