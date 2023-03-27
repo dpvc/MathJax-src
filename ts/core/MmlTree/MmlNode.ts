@@ -68,6 +68,18 @@ const TEXSPACE = [
 ];
 
 /**
+ * The valid mathvariants
+ */
+
+export const MATHVARIANTS = new Set([
+  'normal', 'bold', 'italic', 'bold-italic',
+  'double-struck', 'fraktur', 'bold-fraktur', 'script', 'bold-script',
+  'sans-serif', 'bold-sans-serif', 'sans-serif-italic', 'sans-serif-bold-italic',
+  'monospace',
+  'inital', 'tailed', 'looped', 'stretched'
+]);
+
+/**
  * Attributes used to determine indentation and shifting
  */
 export const indentAttributes = [
@@ -316,6 +328,7 @@ export abstract class AbstractMmlNode extends AbstractNode<MmlNode, MmlNodeClass
   public static verifyDefaults: PropertyList = {
     checkArity: true,
     checkAttributes: false,
+    checkMathvariants: true,
     fullErrors: false,
     fixMmultiscripts: true,
     fixMtables: true
@@ -804,7 +817,7 @@ export abstract class AbstractMmlNode extends AbstractNode<MmlNode, MmlNodeClass
    * @param {PropertyList} options   The options telling how much to verify
    */
   protected verifyAttributes(options: PropertyList) {
-    if (options['checkAttributes']) {
+    if (options.checkAttributes) {
       const attributes = this.attributes;
       const bad = [];
       for (const name of attributes.getExplicitNames()) {
@@ -817,6 +830,12 @@ export abstract class AbstractMmlNode extends AbstractNode<MmlNode, MmlNodeClass
       }
       if (bad.length) {
         this.mError('Unknown attributes for ' + this.kind + ' node: ' + bad.join(', '), options);
+      }
+    }
+    if (options.checkMathvariants) {
+      const variant = this.attributes.getExplicit('mathvariant') as string;
+      if (variant && !MATHVARIANTS.has(variant) && !this.getProperty('ignore-variant')) {
+        this.mError(`Invalid mathvariant: ${variant}`, options, true);
       }
     }
   }
