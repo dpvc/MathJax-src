@@ -792,7 +792,7 @@ export class CommonWrapper<
         hasBorder = true;
         width[i] = Math.max(0, this.length2em(w, 1));
         style[i] = this.styles.get(key + 'Style') || 'solid';
-        color[i] = this.styles.get(key + 'Color') || 'currentColor';
+        color[i] = this.styles.get(key + 'Color');
       }
       const p = this.styles.get('padding' + name);
       if (p) {
@@ -1081,6 +1081,9 @@ export class CommonWrapper<
     shift: string = '',
     width: number = this.metrics.containerWidth
   ): [string, number] {
+    if (!this.jax.math.display) {
+      return ['left', 0];
+    }
     if (!align || align === 'auto') {
       align = this.jax.math.outputData.inlineMarked ? 'left' : this.jax.options.displayAlign;
     }
